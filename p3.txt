@@ -1,0 +1,14 @@
+project 3 changes
+
+function stubs where expanded to make the kernel run
+
+p3-01 -- proc.c
+-- added the plists struct to proc.c
+p3-02 -- proc.c
+-- added the plists to the ptable struct
+p3-03 -- proc.h
+-- added the next ptr to proc struct
+
+p3-0
+p3-1
+p3-2
