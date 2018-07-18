@@ -16,7 +16,6 @@ struct state_lists {
   struct proc *zombie,  *zombie_tail;
   struct proc *running, *running_tail;
   struct proc *embryo,  *embryo_tail;
-
 };
 #endif
 
@@ -37,7 +36,6 @@ extern void trapret(void);
 
 static void wakeup1(void *chan);
 
-
 #ifdef CS333_P3P4
 static void initProcessLists(void);
 static void initFreeList(void);
@@ -47,6 +45,7 @@ static void initFreeList(void);
 static void __attribute__ ((unused)) stateListAdd(struct proc** head, struct proc** tail, struct proc* p);
 static void __attribute__ ((unused)) stateListAddAtHead(struct proc** head, struct proc** tail, struct proc* p);
 static int __attribute__ ((unused)) stateListRemove(struct proc** head, struct proc** tail, struct proc* p);
+static void assertState(struct proc *p, enum procstate s);
 #endif
 
 void
@@ -65,23 +64,61 @@ allocproc(void)
   struct proc *p;
   char *sp;
 
+#ifndef CS333_P3P4
   acquire(&ptable.lock);
   for(p = ptable.proc; p < &ptable.proc[NPROC]; p++)
     if(p->state == UNUSED)
       goto found;
   release(&ptable.lock);
+#else
+  acquire(&ptable.lock);
+  if (ptable.pLists.free != 0) {
+    p = ptable.pLists.free;
+    goto found;
+  }
+  release(&ptable.lock);
+#endif
+
   return 0;
 
 found:
   // TRANSITION
+#ifndef CS333_P3P4
   p->state = EMBRYO;
+#else
+  if (stateListRemove(&ptable.pLists.free, &ptable.pLists.free_tail, p) < 0)
+    panic("alloc - remove from free failed");
+  assertState(p, UNUSED);
+
+  p->state = EMBRYO;
+
+  stateListAddAtHead(&ptable.pLists.embryo, &ptable.pLists.embryo_tail, p);
+  assertState(p, EMBRYO);
+#endif
+
   p->pid = nextpid++;
   release(&ptable.lock);
 
   // Allocate kernel stack.
   if((p->kstack = kalloc()) == 0){
     // TRANSITION
+#ifndef CS33_P3P4
     p->state = UNUSED;
+#else
+    acquire(&ptable.lock);
+
+    if (stateListRemove(&ptable.pLists.embryo, &ptable.pLists.embryo_tail, p) < 0)
+      panic("alloc - remove from embryo failed");
+    assertState(p, EMBRYO);
+
+    p->state = UNUSED;
+
+    stateListAddAtHead(&ptable.pLists.free, &ptable.pLists.free_tail, p);
+    assertState(p, UNUSED);
+    
+    release(&ptable.lock);
+#endif
+
     return 0;
   }
   sp = p->kstack + KSTACKSIZE;
@@ -159,7 +196,16 @@ userinit(void)
   p->state = RUNNABLE;
 #else
   acquire(&ptable.lock);
+
+  if (stateListRemove(&ptable.pLists.embryo, &ptable.pLists.embryo_tail, p))
+    panic("userinit - remove from embryo failed");
+  assertState(p, EMBRYO);
+
   p->state = RUNNABLE;
+
+  stateListAddAtHead(&ptable.pLists.ready, &ptable.pLists.ready_tail, p);
+  assertState(p, RUNNABLE);
+
   release(&ptable.lock);
 #endif
 }
@@ -202,7 +248,23 @@ fork(void)
     kfree(np->kstack);
     np->kstack = 0;
     // TRANSITION
+#ifdef CS333_P3P4
     np->state = UNUSED;
+#else
+    acquire(&ptable.lock);
+
+    if (stateListRemove(&ptable.pLists.embryo, &ptable.pLists.embryo_tail, np) < 0)
+      panic("fork - remove from embryo failed");
+    assertState(np, EMBRYO);
+
+    np->state = UNUSED;
+
+    stateListAddAtHead(&ptable.pLists.free, &ptable.pLists.free_tail, np);
+    assertState(np, UNUSED);
+
+    release(&ptable.lock);
+#endif
+
     return -1;
   }
   np->sz = proc->sz;
@@ -230,8 +292,20 @@ fork(void)
   // lock to force the compiler to emit the np->state write last.
   acquire(&ptable.lock);
   // TRANSITION
+#ifndef CS333_P3P4
   np->state = RUNNABLE;
+#else
+  if (stateListRemove(&ptable.pLists.embryo, &ptable.pLists.embryo_tail, np))
+    panic("userinit - remove from embryo failed");
+  assertState(np, EMBRYO);
+
+  np->state = RUNNABLE;
+
+  stateListAddAtHead(&ptable.pLists.ready, &ptable.pLists.ready_tail, np);
+  assertState(np, RUNNABLE);
+
   release(&ptable.lock);
+#endif
 
   return pid;
 }
@@ -809,6 +883,12 @@ getprocs(int max, struct uproc *t)
 
 #ifdef CS333_P3P4
 static void
+assertState(struct proc *p, enum procstate s) {
+  if (p->state != s)
+    panic("assertState - wrong state");
+}
+
+static void
 stateListAdd(struct proc** head, struct proc** tail, struct proc* p)
 {
   if(*head == 0){
@@ -914,5 +994,64 @@ initFreeList(void)
     p->state = UNUSED;
     stateListAdd(&ptable.pLists.free, &ptable.pLists.free_tail, p);
   }
+}
+
+int
+countList(struct proc *head) 
+{
+  struct proc *p = head;
+  int i = 0;
+
+  while (p != 0) {
+    p = p->next;
+    i++;
+  }
+
+  return i;
+}
+
+// p3-04
+void 
+printFree() 
+{
+  cprintf("Free List:\nF -> %d procs.\n", countList(ptable.pLists.free));
+}
+
+void 
+printSleep() 
+{
+  struct proc *p;
+  cprintf("Sleep List:\nS -> ");
+
+  for (p = ptable.pLists.sleep; p != 0 ; p = p->next) {
+    cprintf("%d -> ", p->pid);
+  }
+  cprintf(".\n");
+}
+
+void 
+printReady() 
+{
+  struct proc *p;
+  cprintf("Ready List:\nR -> ");
+
+  for (p = ptable.pLists.ready; p != 0 ; p = p->next) {
+    cprintf("%d -> ", p->pid);
+  }
+  cprintf(".\n");
+}
+
+void 
+printZombie() 
+{
+  struct proc *p;
+  cprintf("Zombie List:\nZ -> ");
+
+  for (p = ptable.pLists.zombie; p != 0 ; p = p->next) {
+    cprintf("(%d, %d) -> ", p->pid, p->parent->pid);
+  }
+
+  cprintf(".\n");
+
 }
 #endif

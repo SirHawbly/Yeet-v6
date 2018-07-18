@@ -8,7 +8,14 @@ p3-02 -- proc.c
 -- added the plists to the ptable struct
 p3-03 -- proc.h
 -- added the next ptr to proc struct
-
+p3-04 -- proc.c 
+-- added the meat to the print list functions
+p3-05 -- defs.h
+-- added the fn protos to defs
 p3-0
+p3-0
+p3-0
+p3-0
+
 p3-1
 p3-2

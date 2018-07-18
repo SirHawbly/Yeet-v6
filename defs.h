@@ -122,6 +122,13 @@ void            yield(void);
 struct uproc;
 int            getprocs(int,struct uproc*);
 #endif
+// p3-05
+#ifdef CS333_P3P4
+void printFree(void);
+void printSleep(void); 
+void printReady(void);
+void printZombie(void); 
+#endif
 
 // swtch.S
 void            swtch(struct context**, struct context*);
