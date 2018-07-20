@@ -202,6 +202,7 @@ userinit(void)
   assertState(p, EMBRYO);
 
   p->state = RUNNABLE;
+  p->next = 0; // this for some reason
 
   stateListAddAtHead(&ptable.pLists.ready, &ptable.pLists.ready_tail, p);
   assertState(p, RUNNABLE);
