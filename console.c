@@ -187,7 +187,11 @@ struct {
 void
 consoleintr(int (*getc)(void))
 {
-  int c, doprocdump = 0, printlist = 0;
+  int c, doprocdump = 0;
+
+  #ifdef CS333_P3P4
+  int printlist = 0;
+  #endif
 
   acquire(&cons.lock);
   while((c = getc()) >= 0){
@@ -195,6 +199,7 @@ consoleintr(int (*getc)(void))
     case C('P'):  // Process listing.
       doprocdump = 1;   // procdump() locks cons.lock indirectly; invoke later
       break;    
+    #ifdef CS333_P3P4
     case C('F'):  
       printlist = 1;   // procdump() locks cons.lock indirectly; invoke later
       break;
@@ -207,6 +212,7 @@ consoleintr(int (*getc)(void))
     case C('Z'):  
       printlist = 4;   // procdump() locks cons.lock indirectly; invoke later
       break;
+    #endif
     case C('U'):  // Kill line.
       while(input.e != input.w &&
             input.buf[(input.e-1) % INPUT_BUF] != '\n'){
@@ -237,6 +243,8 @@ consoleintr(int (*getc)(void))
   if(doprocdump) {
     procdump();  // now call procdump() wo. cons.lock held
   }
+
+  #ifdef CS333_P3P4
   switch(printlist) {
     case 1:
       printFree();
@@ -253,7 +261,7 @@ consoleintr(int (*getc)(void))
     default:
       break;
   }
-
+  #endif
 }
 
 int
