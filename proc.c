@@ -197,7 +197,7 @@ userinit(void)
 #else
   acquire(&ptable.lock);
 
-  if (stateListRemove(&ptable.pLists.embryo, &ptable.pLists.embryo_tail, p))
+  if (stateListRemove(&ptable.pLists.embryo, &ptable.pLists.embryo_tail, p) < 0)
     panic("userinit - remove from embryo failed");
   assertState(p, EMBRYO);
 
