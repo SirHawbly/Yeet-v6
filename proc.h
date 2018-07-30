@@ -93,6 +93,7 @@ struct proc {
   // p4
 #ifdef CS333_P3P4
   uint priority;
+  uint budget;
 #endif
 };
 
