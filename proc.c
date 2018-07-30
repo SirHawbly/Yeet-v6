@@ -10,7 +10,7 @@
 // p3-01
 #ifdef CS333_P3P4
 struct state_lists {
-  struct proc *ready,   *ready_tail;
+  struct proc *ready[MAXPRIO+1],   *ready_tail[MAXPRIO+1];
   struct proc *free,    *free_tail;
   struct proc *sleep,   *sleep_tail;
   struct proc *zombie,  *zombie_tail;
@@ -191,7 +191,7 @@ userinit(void)
   p->parent = p;
 #endif
 
-  // TRANSITION
+  // TRANSITION P4
 #ifndef CS333_P3P4
   p->state = RUNNABLE;
 #else
@@ -203,7 +203,7 @@ userinit(void)
 
   p->state = RUNNABLE;
 
-  stateListAdd(&ptable.pLists.ready, &ptable.pLists.ready_tail, p);
+  stateListAdd(&ptable.pLists.ready[0], &ptable.pLists.ready_tail[0], p);
   assertState(p, RUNNABLE);
 
   release(&ptable.lock);
@@ -291,7 +291,7 @@ fork(void)
 
   // lock to force the compiler to emit the np->state write last.
   acquire(&ptable.lock);
-  // TRANSITION
+  // TRANSITION P4
 #ifndef CS333_P3P4
   np->state = RUNNABLE;
 #else
@@ -301,7 +301,7 @@ fork(void)
 
   np->state = RUNNABLE;
 
-  stateListAdd(&ptable.pLists.ready, &ptable.pLists.ready_tail, np);
+  stateListAdd(&ptable.pLists.ready[0], &ptable.pLists.ready_tail[0], np);
   assertState(np, RUNNABLE);
 #endif
   release(&ptable.lock);
@@ -389,7 +389,7 @@ exit(void)
       p->parent = initproc;
 
   // Pass abandoned children to init.
-  for(p = ptable.pLists.ready; p != 0; p = p->next)
+  for(p = ptable.pLists.ready[0]; p != 0; p = p->next)
     if(p->parent == proc)
       p->parent = initproc;
 
@@ -525,7 +525,7 @@ wait(void)
       }
     }
     // No point waiting if we don't have any children.
-    for (p = ptable.pLists.ready; p != 0; p = p->next) {
+    for (p = ptable.pLists.ready[0]; p != 0; p = p->next) {
       if (p->parent == proc) {
         havekids = 1;
       }
@@ -625,7 +625,7 @@ scheduler(void)
     idle = 1;  // assume idle unless we schedule a process
     // Loop over process table looking for process to run.
     acquire(&ptable.lock);
-    for(p = ptable.pLists.ready; p != 0; p = p->next){
+    for(p = ptable.pLists.ready[0]; p != 0; p = p->next){
 
       // Switch to chosen process.  It is the process's job
       // to release ptable.lock and then reacquire it
@@ -640,11 +640,11 @@ scheduler(void)
 
       switchuvm(p);
 
-      // TRANSITION
+      // TRANSITION P4
       #ifndef CS333_P3P4
       p->state = RUNNING;
       #else
-      if (stateListRemove(&ptable.pLists.ready, &ptable.pLists.ready_tail, p))
+      if (stateListRemove(&ptable.pLists.ready[0], &ptable.pLists.ready_tail[0], p))
         panic("scheduler - remove from ready failed");
       assertState(p, RUNNABLE);
 
@@ -705,7 +705,7 @@ yield(void)
   
   //struct proc *p = proc;
 
-  // TRANSITION
+  // TRANSITION P4
   #ifndef CS333_P3P4
   proc->state = RUNNABLE;
   #else
@@ -715,7 +715,7 @@ yield(void)
 
   proc->state = RUNNABLE;
 
-  stateListAdd(&ptable.pLists.ready, &ptable.pLists.ready_tail, proc);
+  stateListAdd(&ptable.pLists.ready[0], &ptable.pLists.ready_tail[0], proc);
   assertState(proc, RUNNABLE);
   #endif
 
@@ -815,7 +815,7 @@ wakeup1(void *chan)
 
   for(p = ptable.pLists.sleep; p != 0; p = p->next) {
     if(p->chan == chan) {
-      // TRANSITION
+      // TRANSITION P4
       #ifndef CS333_P3P4
       p->state = RUNNABLE;
       #else
@@ -825,7 +825,7 @@ wakeup1(void *chan)
 
       p->state = RUNNABLE;
 
-      stateListAdd(&ptable.pLists.ready, &ptable.pLists.ready_tail, p);
+      stateListAdd(&ptable.pLists.ready[0], &ptable.pLists.ready_tail[0], p);
       assertState(p, RUNNABLE);
       #endif
     }
@@ -857,7 +857,7 @@ kill(int pid)
       p->killed = 1;
       // Wake process from sleep if necessary.
       if(p->state == SLEEPING)
-        // TRANSITION
+        // TRANSITION P4
         p->state = RUNNABLE;
       release(&ptable.lock);
       return 0;
@@ -882,7 +882,7 @@ kill(int pid)
     }
   }
 
-  for(p = ptable.pLists.ready; p != 0; p = p->next){
+  for(p = ptable.pLists.ready[0]; p != 0; p = p->next){
     if(p->pid == pid){
       p->killed = 1;
       release(&ptable.lock);
@@ -902,6 +902,7 @@ kill(int pid)
     if(p->pid == pid){
       p->killed = 1;
 
+      // TRANSITION P4
       #ifndef CS333_P3P4
       p->state = RUNNABLE;
       #else
@@ -910,7 +911,7 @@ kill(int pid)
 
       p->state = RUNNABLE;
 
-      stateListAdd(&ptable.pLists.ready, &ptable.pLists.ready_tail, p);
+      stateListAdd(&ptable.pLists.ready[0], &ptable.pLists.ready_tail[0], p);
       assertState(p, RUNNABLE);
       #endif
 
@@ -1120,8 +1121,10 @@ stateListRemove(struct proc** head, struct proc** tail, struct proc* p)
 static void
 initProcessLists(void)
 {
-  ptable.pLists.ready = 0;
-  ptable.pLists.ready_tail = 0;
+  for (int i = 0; i <= MAXPRIO; i++) {
+    ptable.pLists.ready[i] = 0;
+    ptable.pLists.ready_tail[i] = 0;
+  } 
   ptable.pLists.free = 0;
   ptable.pLists.free_tail = 0;
   ptable.pLists.sleep = 0;
@@ -1189,7 +1192,7 @@ printReady()
   struct proc *p;
   cprintf("Ready List:\nR -> ");
 
-  for (p = ptable.pLists.ready; p != 0 ; p = p->next) {
+  for (p = ptable.pLists.ready[0]; p != 0 ; p = p->next) {
     cprintf("%d -> ", p->pid);
   }
   cprintf(".\n");

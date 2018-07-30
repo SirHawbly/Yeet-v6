@@ -1,6 +1,11 @@
 // Segments in proc->gdt.
 #define NSEGS     7
 
+// p4
+#ifdef CS333_P3P4
+#define MAXPRIO   7
+#endif
+
 // Per-CPU state
 struct cpu {
   uchar id;                    // Local APIC ID; index into cpus[] below
@@ -83,6 +88,11 @@ struct proc {
   // p3-03
 #ifdef CS333_P3P4
   struct proc *next;
+#endif
+
+  // p4
+#ifdef CS333_P3P4
+  uint priority;
 #endif
 };
 
