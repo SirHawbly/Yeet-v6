@@ -93,6 +93,7 @@ testSched.c
 testuidgid.c
 testuidgid.txt
 p2testsuite.c
+p3testsuite.c
 p4test.c
 
 # p2
