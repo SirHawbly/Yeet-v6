@@ -17,6 +17,9 @@ struct state_lists {
   struct proc *running, *running_tail;
   struct proc *embryo,  *embryo_tail;
 };
+
+#define TICKS_TO_PROMOTE 400
+
 #endif
 
 struct {
@@ -25,6 +28,7 @@ struct {
   // p3-02
 #ifdef CS333_P3P4
   struct state_lists pLists;
+  int promoteAtTime;
 #endif
 } ptable;
 
@@ -46,6 +50,13 @@ static void __attribute__ ((unused)) stateListAdd(struct proc** head, struct pro
 static void __attribute__ ((unused)) stateListAddAtHead(struct proc** head, struct proc** tail, struct proc* p);
 static int __attribute__ ((unused)) stateListRemove(struct proc** head, struct proc** tail, struct proc* p);
 static void assertState(struct proc *p, enum procstate s);
+
+
+int __attribute__ ((unused)) setpriority(int pid, int priority);
+int __attribute__ ((unused)) getpriority(int pid);
+
+static void __attribute__ ((unused)) promoteProc(struct proc* p);
+static void __attribute__ ((unused))  demoteProc(struct proc* p);
 #endif
 
 void
@@ -144,8 +155,13 @@ found:
 
   // p2-14
 #ifdef CS333_P2
- p->cpu_ticks_total = 0; 
- p->cpu_ticks_in = 0; 
+  p->cpu_ticks_total = 0; 
+  p->cpu_ticks_in = 0; 
+#endif
+
+#ifndef CS333_P3P4
+  p->budget = MAXBUDG;
+  p->priority = MAXPRIO;
 #endif
 
   return p;
@@ -625,7 +641,7 @@ scheduler(void)
     idle = 1;  // assume idle unless we schedule a process
     // Loop over process table looking for process to run.
     acquire(&ptable.lock);
-    for(p = ptable.pLists.ready[0]; p != 0; p = p->next){
+    for (p = ptable.pLists.ready[0]; p != 0; p = p->next) {
 
       // Switch to chosen process.  It is the process's job
       // to release ptable.lock and then reacquire it
@@ -690,6 +706,11 @@ sched(void)
   // p2-17
   #ifdef CS333_P2
   proc->cpu_ticks_total += ticks - proc->cpu_ticks_in;
+  #endif
+
+  // p4
+  #ifdef CS333_P3P4
+  proc->budget -= ticks - proc->cpu_ticks_in;
   #endif
 
   intena = cpu->intena;
@@ -1211,4 +1232,21 @@ printZombie()
   cprintf(".\n");
 
 }
+
+static void
+promoteProc(struct proc* p)
+{
+  // search for pid in ready[pid->priority] list
+  // remove it off the list, dec the priority add
+  // it onto the new list, then reset the budget.
+}
+
+static void
+demoteProc(struct proc* p)
+{
+  // search for pid in ready[pid->priority] list
+  // remove it off the list, inc the priority add
+  // it onto the new list, then reset the budget.
+}
+
 #endif
