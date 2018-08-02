@@ -51,10 +51,11 @@ static void __attribute__ ((unused)) stateListAddAtHead(struct proc** head, stru
 static int __attribute__ ((unused)) stateListRemove(struct proc** head, struct proc** tail, struct proc* p);
 static void assertState(struct proc *p, enum procstate s);
 
-
+// p4
 int __attribute__ ((unused)) setpriority(int pid, int priority);
 int __attribute__ ((unused)) getpriority(int pid);
-
+//
+static void __attribute__ ((unused)) promoteAll();
 static void __attribute__ ((unused)) promoteProc(struct proc* p);
 static void __attribute__ ((unused))  demoteProc(struct proc* p);
 #endif
@@ -641,41 +642,45 @@ scheduler(void)
     idle = 1;  // assume idle unless we schedule a process
     // Loop over process table looking for process to run.
     acquire(&ptable.lock);
-    for (p = ptable.pLists.ready[0]; p != 0; p = p->next) {
 
-      // Switch to chosen process.  It is the process's job
-      // to release ptable.lock and then reacquire it
-      // before jumping back to us.
-      idle = 0;  // not idle this timeslice
-      proc = p;
+    // p4 loop for lists
+    for (int i = 0; i < MAXPRIO+1; i++) {
+      for (p = ptable.pLists.ready[i]; p != 0; p = p->next) {
 
-      // p2-16
-      #ifdef CS333_P2
-      p->cpu_ticks_in = ticks;
-      #endif
+        // Switch to chosen process.  It is the process's job
+        // to release ptable.lock and then reacquire it
+        // before jumping back to us.
+        idle = 0;  // not idle this timeslice
+        proc = p;
 
-      switchuvm(p);
+        // p2-16
+        #ifdef CS333_P2
+        p->cpu_ticks_in = ticks;
+        #endif
 
-      // TRANSITION P4
-      #ifndef CS333_P3P4
-      p->state = RUNNING;
-      #else
-      if (stateListRemove(&ptable.pLists.ready[0], &ptable.pLists.ready_tail[0], p))
-        panic("scheduler - remove from ready failed");
-      assertState(p, RUNNABLE);
+        switchuvm(p);
 
-      p->state = RUNNING;
+        // TRANSITION P4
+        #ifndef CS333_P3P4
+        p->state = RUNNING;
+        #else
+        if (stateListRemove(&ptable.pLists.ready[0], &ptable.pLists.ready_tail[0], p))
+          panic("scheduler - remove from ready failed");
+        assertState(p, RUNNABLE);
 
-      stateListAddAtHead(&ptable.pLists.running, &ptable.pLists.running_tail, p);
-      assertState(p, RUNNING);
-      #endif
+        p->state = RUNNING;
 
-      swtch(&cpu->scheduler, proc->context);
-      switchkvm();
+        stateListAddAtHead(&ptable.pLists.running, &ptable.pLists.running_tail, p);
+        assertState(p, RUNNING);
+        #endif
 
-      // Process is done running for now.
-      // It should have changed its p->state before coming back.
-      proc = 0;
+        swtch(&cpu->scheduler, proc->context);
+        switchkvm();
+
+        // Process is done running for now.
+        // It should have changed its p->state before coming back.
+        proc = 0;
+      }
     }
     release(&ptable.lock);
     // if idle, wait for next interrupt
@@ -1233,20 +1238,170 @@ printZombie()
 
 }
 
+// p4 functions
+static void
+promoteAll() 
+{
+  struct proc *p, *curr, *last;
+
+  // if not time, return out
+  // 1..10..100..1000..1..10..100..1000
+  if (ticks < ptable.promoteAtTime)
+    return;
+
+  // loop through all the procs in the ready queue
+  // call promote on them.
+  for (int i = 0; i < MAXPRIO+1; i++) {
+
+    // set start and stop points for the list
+    p = ptable.pLists.ready[i];
+    last = ptable.pLists.ready_tail[i];
+
+    // if null just continue on
+    if (p == 0)
+      continue;
+
+    // while there are processes, take the current process,
+    // move p ahead, promote current, and then check that 
+    // current isnt the last process, (we are adding to end).
+    while (p != 0) {
+
+      curr = p;
+      p = curr->next;
+
+      promoteProc(curr);
+
+      if (curr->pid == last->pid)
+        break;
+    }      
+  }
+
+  for (p = ptable.pLists.sleep; p != 0; p = p->next)
+  for (p = ptable.pLists.running; p != 0; p = p->next)
+    
+
+  // increment the promote timer
+  ptable.promoteAtTime = ticks + TICKS_TO_PROMOTE;
+}
+
 static void
 promoteProc(struct proc* p)
 {
-  // search for pid in ready[pid->priority] list
+  // search for p in ready[p->priority] list
   // remove it off the list, dec the priority add
   // it onto the new list, then reset the budget.
+  int locked = 0;
+
+  // grab the lock if we dont have it
+  if(!holding(&ptable.lock)) {
+    acquire(&ptable.lock);
+    locked = 1;
+  }
+
+  // remove the process, increase priority if poss, reset budget
+  stateListRemove(&ptable.pLists.ready[p->priority], &ptable.pLists.ready_tail[p->priority], p);
+
+  if (p->priority < 0)
+    p->priority--;
+
+  p->budget = MAXBUDG;
+
+  // add it to the new list
+  stateListAdd(&ptable.pLists.ready[p->priority], &ptable.pLists.ready_tail[p->priority], p);  
+
+  // if we locked the lock, unlock
+  if(locked == 1)
+    release(&ptable.lock);
 }
 
 static void
 demoteProc(struct proc* p)
 {
-  // search for pid in ready[pid->priority] list
+  // search for p in ready[p->priority] list
   // remove it off the list, inc the priority add
   // it onto the new list, then reset the budget.
+  int locked = 0;
+  
+  // check that this process is demotable
+  if (p->budget < MAXBUDG)
+    return;
+
+  // grab the lock if we dont have it
+  if(!holding(&ptable.lock)) {
+    acquire(&ptable.lock);
+    locked = 1;
+  }
+
+  // remove the process, increase priority if poss, reset budget
+  stateListRemove(&ptable.pLists.ready[p->priority], &ptable.pLists.ready_tail[p->priority], p);
+
+  if (p->priority <= MAXPRIO)
+    p->priority++;
+
+  p->budget = MAXBUDG;
+
+  // add it to the new list
+  stateListAdd(&ptable.pLists.ready[p->priority], &ptable.pLists.ready_tail[p->priority], p);  
+
+  // if we locked the lock, unlock
+  if(locked == 1)
+    release(&ptable.lock);
+
 }
 
+int 
+setpriority(int pid, int priority)
+{
+  int i, locked = 0;
+  struct proc *p;
+
+  for (i = 0; i < MAXPRIO+1; i++) {
+    for (p = ptable.pLists.ready[i]; p != 0; p = p->next) {
+
+      if (p->pid == pid) {
+
+        if (!holding(&ptable.lock)) {
+          acquire(&ptable.lock);
+          locked = 1;
+        }
+        
+        // remove the process, increase priority if poss, reset budget
+        stateListRemove(&ptable.pLists.ready[p->priority], &ptable.pLists.ready_tail[p->priority], p);
+
+        if (priority <= MAXPRIO && priority >= 0)
+          p->priority = priority;
+        else
+          panic("setpriority - bad priority value");
+
+        p->budget = MAXBUDG;
+
+        // add it to the new list
+        stateListAdd(&ptable.pLists.ready[p->priority], &ptable.pLists.ready_tail[p->priority], p);  
+
+        if (locked == 1)
+          release(&ptable.lock);
+
+        return 0;
+      }
+    }
+  }
+  
+  return -1;
+}
+
+int 
+getpriority(int pid)
+{  
+  struct proc *p;
+  int i = 0;
+
+  for (i = 0; i <= MAXPRIO+1; i++) {
+    for (p = ptable.pLists.ready[i]; p != 0; p = p->next) {
+      if (p->pid == pid) 
+        return p->priority;
+    }
+  }
+
+  return -1;
+}
 #endif
