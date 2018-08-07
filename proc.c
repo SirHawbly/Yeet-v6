@@ -55,7 +55,6 @@ int __attribute__ ((unused)) setpriority(int pid, int priority);
 int __attribute__ ((unused)) getpriority(int pid);
 //
 static void __attribute__ ((unused)) promoteAll();
-static void __attribute__ ((unused)) promoteProc(struct proc* p);
 static void __attribute__ ((unused))  demoteProc(struct proc* p);
 
 static void assertPriority(void);
@@ -161,7 +160,7 @@ found:
   p->cpu_ticks_in = 0; 
 #endif
 
-#ifndef CS333_P3P4
+#ifdef CS333_P3P4
   p->budget = MAXBUDG;
   p->priority = 0;
 #endif
@@ -307,7 +306,7 @@ fork(void)
 
   pid = np->pid;
 
-#ifndef CS333_P3P4
+#ifdef CS333_P3P4
   np->priority = 0;
   np->budget = MAXBUDG;
 #endif
@@ -318,7 +317,7 @@ fork(void)
 #ifndef CS333_P3P4
   np->state = RUNNABLE;
 #else
-  if (stateListRemove(&ptable.pLists.embryo, &ptable.pLists.embryo_tail, np))
+  if (stateListRemove(&ptable.pLists.embryo, &ptable.pLists.embryo_tail, np) < 0)
     panic("userinit - remove from embryo failed");
   assertState(np, EMBRYO);
 
@@ -442,7 +441,8 @@ exit(void)
   #ifndef CS333_P3P4  
   proc->state = ZOMBIE;
   #else
-  stateListRemove(&ptable.pLists.running, &ptable.pLists.running_tail, proc);
+  if (stateListRemove(&ptable.pLists.running, &ptable.pLists.running_tail, proc) < 0)
+    panic("exit - remove from running failed\n");
   assertState(proc, RUNNING);
 
   proc->state = ZOMBIE;
@@ -684,11 +684,11 @@ scheduler(void)
       #else
       assertPriority();
        
-      if (stateListRemove(&ptable.pLists.ready[p->priority], &ptable.pLists.ready_tail[p->priority], p) != 0) {
-
-        cprintf("%d:%d:%d\n", p->pid, p->priority, ptable.pLists.ready[p->priority]);
+      //cprintf("%d:%d:%d\n", p->pid, p->priority, ptable.pLists.ready[p->priority]->pid);
+      
+      if (stateListRemove(&ptable.pLists.ready[p->priority], &ptable.pLists.ready_tail[p->priority], p) < 0) 
         panic("scheduler - remove from ready failed");
-      }
+      
       assertState(p, RUNNABLE);
 
       p->state = RUNNING;
@@ -757,7 +757,7 @@ yield(void)
   #ifndef CS333_P3P4
   proc->state = RUNNABLE;
   #else
-  if (stateListRemove(&ptable.pLists.running, &ptable.pLists.running_tail, proc))
+  if (stateListRemove(&ptable.pLists.running, &ptable.pLists.running_tail, proc) < 0)
     panic("sched - remove from running failed");
   assertState(proc, RUNNING);
 
@@ -820,7 +820,7 @@ sleep(void *chan, struct spinlock *lk)
   #ifndef CS333_P3P4
   proc->state = SLEEPING;
   #else
-  if (stateListRemove(&ptable.pLists.running, &ptable.pLists.running_tail, proc))
+  if (stateListRemove(&ptable.pLists.running, &ptable.pLists.running_tail, proc) < 0)
     panic("sleep - remove from running failed");
   assertState(proc, RUNNING);
 
@@ -869,7 +869,7 @@ wakeup1(void *chan)
       #ifndef CS333_P3P4
       p->state = RUNNABLE;
       #else
-      if (stateListRemove(&ptable.pLists.sleep, &ptable.pLists.sleep_tail, p))
+      if (stateListRemove(&ptable.pLists.sleep, &ptable.pLists.sleep_tail, p) < 0)
         panic("wakeup1 - remove from sleep failed");
       assertState(p, SLEEPING);
 
@@ -958,7 +958,8 @@ kill(int pid)
       #ifndef CS333_P3P4
       p->state = RUNNABLE;
       #else
-      stateListRemove(&ptable.pLists.sleep, &ptable.pLists.sleep_tail, p);
+      if (stateListRemove(&ptable.pLists.sleep, &ptable.pLists.sleep_tail, p) < 0)
+        panic("kill - remove from sleep failed\n");
       assertState(p, SLEEPING);
 
       p->state = RUNNABLE;
@@ -1125,12 +1126,15 @@ stateListAddAtHead(struct proc** head, struct proc** tail, struct proc* p)
 static int
 stateListRemove(struct proc** head, struct proc** tail, struct proc* p)
 {
+
   if(*head == 0 || *tail == 0 || p == 0){
     if(*head == 0) cprintf("head - null pointer");
     if(*tail == 0) cprintf("tail - null pointer");
     if(p     == 0) cprintf("p - null pointer");
+    cprintf("\n%d:%d:%d\n", p->pid, (*head)->pid, p->priority);
     return -1;
   }
+
   struct proc* current = *head;
   struct proc* previous = 0;
 
@@ -1288,34 +1292,19 @@ promoteAll()
   if (ticks < ptable.promoteAtTime)
     return;
 
-  cprintf("promoteAll - promoting procs\n");
-  int v[2][MAXPRIO+1][2];
-  for (int i = 0; i < MAXPRIO+1; i++) {
-    v[0][i][0] = (int)&ptable.pLists.ready[i];
-    v[0][i][1] = (int)&ptable.pLists.ready_tail[i];
-  }
-
   // set up the first list, append the second to it,
   if (ptable.pLists.ready[0] && ptable.pLists.ready_tail[0]) {
     ptable.pLists.ready_tail[0]->next = ptable.pLists.ready[1];
-    ptable.pLists.ready_tail[0]       = ptable.pLists.ready_tail[1];
-
-    ptable.pLists.ready[1] = 0;
-    ptable.pLists.ready_tail[1] = 0;
+    if (ptable.pLists.ready_tail[1])
+      ptable.pLists.ready_tail[0]     = ptable.pLists.ready_tail[1];
   } 
   else {
-    ptable.pLists.ready[0] = ptable.pLists.ready[1];
+    ptable.pLists.ready[0]      = ptable.pLists.ready[1];
     ptable.pLists.ready_tail[0] = ptable.pLists.ready_tail[1];
+  }
 
-    ptable.pLists.ready[1] = 0;
-    ptable.pLists.ready_tail[1] = 0;
-  }
-  // reset budgets
-  for (struct proc *h = ptable.pLists.ready[0]; h != 0; h = h->next) {
-    h->budget = MAXBUDG;
-    h->priority = 0;
-  }
-  // done with first list
+  ptable.pLists.ready[1] = 0;
+  ptable.pLists.ready_tail[1] = 0;
 
   // loop through the other lists, passing the value of the
   // lower pointers up.
@@ -1323,34 +1312,29 @@ promoteAll()
 
     ptable.pLists.ready[i]      = ptable.pLists.ready[i+1];
     ptable.pLists.ready_tail[i] = ptable.pLists.ready_tail[i+1];
-
-    for (struct proc *h = ptable.pLists.ready[i]; h != 0; h = h->next) {
-      h->budget = MAXBUDG;
-      h->priority = i-1;
-    }
   }
 
+  // reset the bottom lists
   ptable.pLists.ready[MAXPRIO] = 0;
   ptable.pLists.ready_tail[MAXPRIO] = 0;
 
-  for (int i = 0; i < MAXPRIO+1; i++) {
-    v[1][i][0] = (int)&ptable.pLists.ready[i];
-    v[1][i][1] = (int)&ptable.pLists.ready_tail[i];
-    cprintf("%d -> %d >> %d -> %d\n", v[0][i][0], v[0][i][1], v[1][i][0], v[1][i][1]);
+  // reset budgets
+  for (int i = 0; i < MAXPRIO; i++) {
+    for (struct proc *h = ptable.pLists.ready[i]; h != 0; h = h->next) {
+      h->budget = MAXBUDG;
+      h->priority = i;
+    }
   }
-
 
   // reset sleepers
   for (struct proc *p = ptable.pLists.sleep; p != 0; p = p->next) {
-    if (p->priority > 0) 
-      p->priority--;
+    if (p->priority > 0) p->priority--;
     p->budget = MAXBUDG;
   }
 
   // reset running procs
   for (struct proc *p = ptable.pLists.running; p != 0; p = p->next) {
-    if (p->priority > 0) 
-      p->priority--;
+    if (p->priority > 0) p->priority--;
     p->budget = MAXBUDG;
   }
 
@@ -1362,64 +1346,22 @@ promoteAll()
 }
 
 static void
-promoteProc(struct proc* p)
-{
-  // search for p in ready[p->priority] list
-  // remove it off the list, dec the priority add
-  // it onto the new list, then reset the budget.
-  int locked = 0;
-
-  // grab the lock if we dont have it
-  if(!holding(&ptable.lock)) {
-    acquire(&ptable.lock);
-    locked = 1;
-  }
-
-  // remove the process, increase priority if poss, reset budget
-  if (p->state == RUNNABLE)
-    stateListRemove(&ptable.pLists.ready[p->priority], &ptable.pLists.ready_tail[p->priority], p);
-
-  if (p->priority < 0) p->priority--;
-  p->budget = MAXBUDG;
-
-  // add it to the new list
-  if (p->state == RUNNABLE)
-    stateListAdd(&ptable.pLists.ready[p->priority], &ptable.pLists.ready_tail[p->priority], p);  
-
-  // if we locked the lock, unlock
-  if(locked == 1)
-    release(&ptable.lock);
-}
-
-static void
 demoteProc(struct proc* p)
 {
   
-  // search for p in ready[p->priority] list
-  // remove it off the list, inc the priority add
-  // it onto the new list, then reset the budget.
   int locked = 0;
   
   // check that this process is demotable
   if (p->budget <= MAXBUDG)
     return;
 
-  cprintf("demoteProc - demoting procs\n");
-
   // grab the lock if we dont have it
   if(!holding(&ptable.lock)) {
     acquire(&ptable.lock);
     locked = 1;
   }
 
-  //if (p->state == RUNNABLE)
-    //stateListRemove(&ptable.pLists.ready[p->priority], &ptable.pLists.ready_tail[p->priority], p);
-
-  cprintf("decreasing process from %d to %d\n", p->priority, p->priority+1);
   if (p->priority < MAXPRIO) p->priority++;
-
-  //if (p->state == RUNNABLE)
-    //stateListAddAtHead(&ptable.pLists.ready[p->priority], &ptable.pLists.ready_tail[p->priority], p);
 
   p->budget = MAXBUDG;
 
@@ -1447,7 +1389,8 @@ setPriority(int pid, int priority)
         
         // remove the process, increase priority if poss, reset budget
         if (p->state == RUNNABLE)
-          stateListRemove(&ptable.pLists.ready[p->priority], &ptable.pLists.ready_tail[p->priority], p);
+          if (stateListRemove(&ptable.pLists.ready[p->priority], &ptable.pLists.ready_tail[p->priority], p))
+            panic("setpriority - remove from ready failed\n");
 
         if (priority <= MAXPRIO && priority >= 0)
           p->priority = priority;
