@@ -186,3 +186,36 @@ sys_getprocs(void)
   return n;
 }
 #endif
+
+// p4
+#ifdef CS333_P3P4
+int 
+sys_getPriority(void)
+{
+  int pid;
+
+  if(argint(0, &pid) < 0)
+    return -1;
+
+  if (pid < 0 || pid > 32767)
+    return -1;
+
+
+  return getPriority(pid);
+
+}
+
+int 
+sys_setPriority(void)
+{
+  int pid, nprio;
+
+  if(argint(0, &pid) < 0) return -1;
+  if(argint(1, &nprio) < 0) return -1;
+
+  if (pid < 0 || pid > 32767) return -1;
+  if (nprio < 0 || nprio > 32767) return -1;
+
+  return setPriority(pid, nprio);
+}
+#endif

@@ -16,3 +16,12 @@
 // p2-09
 #define PROC_UID 0
 #define PROC_GID 0
+
+// p4
+#ifdef CS333_P3P4
+
+#define MAXPRIO   7
+#define MAXBUDG   200
+#define TICKS_TO_PROMOTE MAXBUDG*20
+
+#endif

@@ -117,6 +117,12 @@ extern int sys_setgid(void);
 extern int sys_getprocs(void);
 #endif
 
+// p4
+#ifdef CS333_P3P4
+extern int sys_getPriority(void);
+extern int sys_setPriority(void);
+#endif
+
 static int (*syscalls[])(void) = {
 [SYS_fork]    sys_fork,
 [SYS_exit]    sys_exit,
@@ -155,6 +161,12 @@ static int (*syscalls[])(void) = {
 
 // p2-23
 [SYS_getprocs]    sys_getprocs,
+#endif
+
+// p4
+#ifdef CS333_P3P4
+[SYS_setPriority] sys_setPriority,
+[SYS_getPriority] sys_getPriority,
 #endif
 };
 
@@ -199,6 +211,12 @@ static char* syscallnames[] = {
 
 // p2-24
 [SYS_getprocs]    "getprocs",
+#endif
+
+// p4
+#ifdef CS333_P3P4
+[SYS_setPriority] "setPriority",
+[SYS_getPriority] "getPriority",
 #endif
 };
 #endif

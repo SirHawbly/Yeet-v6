@@ -1,0 +1,12 @@
+user.h    - add function prototype for call
+
+usys.S    - call the syscall macro
+
+syscall.h - add the syscall id to the id table
+
+syscall.c - add the syscall prototype, id->name and id->function
+
+sysproc.c - add the meat of the syscall function
+
+$call.c    - add the user program that will be called  
+

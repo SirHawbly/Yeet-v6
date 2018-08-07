@@ -28,7 +28,7 @@ int createSetPrioProc(int prio);
      names you have defined in your code.
 */
 const int plevels = MAXPRIO;
-const int budget = BUDGET;
+const int budget = MAXBUDG;
 const int promo = TICKS_TO_PROMOTE;
 
 void
@@ -138,7 +138,7 @@ test2()
   int pid[2];
   pid[0]  = createInfiniteProc();
 
-  setpriority(getpid(), plevels);
+  setPriority(getpid(), plevels);
   start_time = uptime();
 
   i = 0;
@@ -159,7 +159,7 @@ test2()
   printf(1, "+=+=+=+=+=+=+=+=+=\n");
 
   pid[1] = createSetPrioProc(0);
-  setpriority(pid[0], plevels);
+  setPriority(pid[0], plevels);
   start_time = uptime();
 
   i = 0;
@@ -387,7 +387,7 @@ createSetPrioProc(int prio)
   int pid = fork();
   if(pid == 0)
     while(1)
-      setpriority(getpid(), prio);
+      setPriority(getpid(), prio);
 
   return pid;
 }

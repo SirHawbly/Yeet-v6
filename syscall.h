@@ -33,3 +33,7 @@
 #define SYS_setgid    SYS_setuid+1
 //p2-21
 #define SYS_getprocs  SYS_setgid+1
+
+// p4
+#define SYS_getPriority SYS_getprocs+1
+#define SYS_setPriority SYS_getPriority+1 

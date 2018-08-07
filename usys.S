@@ -42,3 +42,7 @@ SYSCALL(setgid)
 
 # p2-20
 SYSCALL(getprocs)
+
+# p4
+SYSCALL(setPriority)
+SYSCALL(getPriority)

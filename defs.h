@@ -128,6 +128,8 @@ void printFree(void);
 void printSleep(void); 
 void printReady(void);
 void printZombie(void); 
+int getPriority(int);
+int setPriority(int, int);
 #endif
 
 // swtch.S

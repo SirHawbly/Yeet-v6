@@ -17,8 +17,6 @@ struct state_lists {
   struct proc *running,             *running_tail;
   struct proc *embryo,              *embryo_tail;
 };
-
-#define TICKS_TO_PROMOTE MAXBUDG*2
 #endif
 
 struct {
@@ -450,7 +448,6 @@ exit(void)
   stateListAdd(&ptable.pLists.zombie, &ptable.pLists.zombie_tail, proc);
   assertState(proc, ZOMBIE);
 
-  demoteProc(proc);
   #endif
 
   sched();
@@ -735,11 +732,6 @@ sched(void)
   proc->cpu_ticks_total += ticks - proc->cpu_ticks_in;
   #endif
 
-  // p4
-  #ifdef CS333_P3P4
-  proc->budget -= ticks - proc->cpu_ticks_in;
-  #endif
-
   intena = cpu->intena;
   swtch(&proc->context, cpu->scheduler);
   cpu->intena = intena;
@@ -762,6 +754,10 @@ yield(void)
   assertState(proc, RUNNING);
 
   proc->state = RUNNABLE;
+
+  // p4
+  proc->budget -= ticks - proc->cpu_ticks_in;
+  demoteProc(proc);
 
   stateListAdd(&ptable.pLists.ready[proc->priority], &ptable.pLists.ready_tail[proc->priority], proc);
   assertState(proc, RUNNABLE);
@@ -828,7 +824,10 @@ sleep(void *chan, struct spinlock *lk)
 
   stateListAdd(&ptable.pLists.sleep, &ptable.pLists.sleep_tail, proc);
   assertState(proc, SLEEPING);
-  
+ 
+  // p4
+  proc->budget -= ticks - proc->cpu_ticks_in;
+ 
   demoteProc(proc);
   #endif
 
@@ -1362,7 +1361,6 @@ demoteProc(struct proc* p)
   }
 
   if (p->priority < MAXPRIO) p->priority++;
-
   p->budget = MAXBUDG;
 
   // if we locked the lock, unlock
