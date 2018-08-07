@@ -28,12 +28,12 @@ main(void)
   
   if (n < 0) printf(2, "ps: getprocs failed");
 
-  printf(1, "\nPID\tName\tUID\tGID\tPPID\tETime\tCPU\tState\tSize\n"); 
+  printf(1, "\nPID\tName\tUID\tGID\tPPID\tPrio\tETime\tCPU\tState\tSize\n"); 
   
   for (int i = 0; i < n; i++) {
    
-    printf(1, "%d\t%s\t%d\t%d\t%d\t", 
-            t[i].pid, t[i].name, t[i].uid, t[i].gid, t[i].ppid);
+    printf(1, "%d\t%s\t%d\t%d\t%d\t%d\t", 
+            t[i].pid, t[i].name, t[i].uid, t[i].gid, t[i].ppid, t[i].prio);
     print_ticks(t[i].elapsed_ticks);
     print_ticks(t[i].CPU_total_ticks);
     printf(1, "%s\t%d\n", t[i].state, t[i].size);

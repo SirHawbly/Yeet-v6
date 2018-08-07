@@ -5,7 +5,7 @@
 #ifdef CS333_P3P4
 
 #define MAXPRIO   7
-#define MAXBUDG   200
+#define MAXBUDG   2000
 
 #endif
 
