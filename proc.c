@@ -1030,7 +1030,7 @@ procdump(void)
 // p2-32
 #ifdef CS333_P2
     cprintf("%d\t%s\t%d\t%d\t%d\t%d\t", 
-      p->pid, p->name, p->uid, p->gid, p->parent->pid, p->priority);
+      p->pid, p->name, p->uid, p->gid, p->parent->pid, MAXPRIO - p->priority);
     print_ticks(ticks - p->start_ticks);
     print_ticks(p->cpu_ticks_total);
     cprintf("%s ", state);
@@ -1071,7 +1071,7 @@ getprocs(int max, struct uproc *t)
       t[size].uid = p->uid;
       t[size].gid = p->gid;
       t[size].ppid = p->parent->pid;
-      t[size].prio = p->priority;
+      t[size].prio = MAXPRIO - p->priority;
 
       t[size].elapsed_ticks = ticks - p->start_ticks;
       t[size].CPU_total_ticks = p->cpu_ticks_total;
@@ -1251,7 +1251,7 @@ printReady()
   cprintf("Ready Lists:\n");
   
   for (int i = 0; i < MAXPRIO+1; i++) {
-    cprintf("R%d -> ", i);
+    cprintf("R%d -> ", (MAXPRIO - i));
 
     for (p = ptable.pLists.ready[i]; p != 0 ; p = p->next) {
       cprintf("%d -> ", p->pid);
@@ -1375,40 +1375,60 @@ setPriority(int pid, int priority)
   int i, locked = 0;
   struct proc *p;
 
+  if (!holding(&ptable.lock)) {
+    acquire(&ptable.lock);
+    locked = 1;
+  }
+
   for (i = 0; i < MAXPRIO+1; i++) {
     for (p = ptable.pLists.ready[i]; p != 0; p = p->next) {
 
       if (p->pid == pid) {
+       
+        if (stateListRemove(&ptable.pLists.ready[p->priority], &ptable.pLists.ready_tail[p->priority], p))
+          panic("setpriority - remove from ready failed\n");
 
-        if (!holding(&ptable.lock)) {
-          acquire(&ptable.lock);
-          locked = 1;
-        }
-        
-        // remove the process, increase priority if poss, reset budget
-        if (p->state == RUNNABLE)
-          if (stateListRemove(&ptable.pLists.ready[p->priority], &ptable.pLists.ready_tail[p->priority], p))
-            panic("setpriority - remove from ready failed\n");
-
-        if (priority <= MAXPRIO && priority >= 0)
-          p->priority = priority;
-        else
-          panic("setpriority - bad priority value");
-
+        if (priority <= MAXPRIO && priority >= 0) p->priority = MAXPRIO-priority;
+        else panic("setpriority - bad priority value");
         p->budget = MAXBUDG;
 
-        // add it to the new list
-        if (p->state == RUNNABLE)
-          stateListAdd(&ptable.pLists.ready[p->priority], &ptable.pLists.ready_tail[p->priority], p);  
+        stateListAdd(&ptable.pLists.ready[p->priority], &ptable.pLists.ready_tail[p->priority], p);  
 
         if (locked == 1)
           release(&ptable.lock);
 
+        //assertPriority();
         return 0;
       }
     }
   }
   
+  for (p = ptable.pLists.running; p != 0; p = p->next) {
+    if (p->pid == pid) { 
+      if (priority <= MAXPRIO && priority >= 0) p->priority = priority;
+      else panic("setpriority - bad priority value");
+      p->budget = MAXBUDG;
+      //assertPriority();
+      if (locked == 1)
+        release(&ptable.lock);
+      return 0;
+    }
+  }
+
+  for (p = ptable.pLists.sleep; p != 0; p = p->next) {
+    if (p->pid == pid) { 
+      if (priority <= MAXPRIO && priority >= 0) p->priority = priority;
+      else panic("setpriority - bad priority value");
+      p->budget = MAXBUDG;
+      if (locked == 1)
+        release(&ptable.lock);
+      //assertPriority();
+      return 0;
+    }
+  }
+ 
+  if (locked == 1)
+    release(&ptable.lock);
   return -1;
 }
 
