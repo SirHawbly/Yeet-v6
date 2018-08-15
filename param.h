@@ -20,7 +20,7 @@
 // p4
 #ifdef CS333_P3P4
 
-#define MAXPRIO   7
+#define MAXPRIO   6
 #define MAXBUDG   200
 #define TICKS_TO_PROMOTE MAXBUDG*20
 

@@ -206,6 +206,10 @@ userinit(void)
   p->parent = p;
 #endif
 
+#ifdef CS333_P3P4
+  ptable.promoteAtTime = ticks + TICKS_TO_PROMOTE; 
+#endif
+
   // TRANSITION P4
 #ifndef CS333_P3P4
   p->state = RUNNABLE;
@@ -316,7 +320,7 @@ fork(void)
   np->state = RUNNABLE;
 #else
   if (stateListRemove(&ptable.pLists.embryo, &ptable.pLists.embryo_tail, np) < 0)
-    panic("userinit - remove from embryo failed");
+    panic("fork - remove from embryo failed");
   assertState(np, EMBRYO);
 
   np->state = RUNNABLE;
@@ -750,7 +754,7 @@ yield(void)
   proc->state = RUNNABLE;
   #else
   if (stateListRemove(&ptable.pLists.running, &ptable.pLists.running_tail, proc) < 0)
-    panic("sched - remove from running failed");
+    panic("yield - remove from running failed");
   assertState(proc, RUNNING);
 
   proc->state = RUNNABLE;
@@ -1017,6 +1021,8 @@ procdump(void)
 // p1-15
 #elif CS333_P1
   cprintf("PID Name State Elapsed PCs\n");
+#else
+  cprintf("PID state name\n");
 #endif
 
   for(p = ptable.proc; p < &ptable.proc[NPROC]; p++){
@@ -1071,7 +1077,10 @@ getprocs(int max, struct uproc *t)
       t[size].uid = p->uid;
       t[size].gid = p->gid;
       t[size].ppid = p->parent->pid;
+
+#ifdef CS333_P3P4
       t[size].prio = MAXPRIO - p->priority;
+#endif
 
       t[size].elapsed_ticks = ticks - p->start_ticks;
       t[size].CPU_total_ticks = p->cpu_ticks_total;
@@ -1254,7 +1263,7 @@ printReady()
     cprintf("R%d -> ", (MAXPRIO - i));
 
     for (p = ptable.pLists.ready[i]; p != 0 ; p = p->next) {
-      cprintf("%d -> ", p->pid);
+      cprintf("%d:%d -> ", p->pid, p->budget);
     }
 
     cprintf(".\n");
@@ -1289,6 +1298,9 @@ promoteAll()
   // if not time, return out
   // 1..10..100..1000..1..10..100..1000
   if (ticks < ptable.promoteAtTime)
+    return;
+
+  if (MAXPRIO == 0)
     return;
 
   // set up the first list, append the second to it,
@@ -1354,6 +1366,9 @@ demoteProc(struct proc* p)
   if (p->budget <= MAXBUDG)
     return;
 
+  if (MAXPRIO == 0)
+    return;
+
   // grab the lock if we dont have it
   if(!holding(&ptable.lock)) {
     acquire(&ptable.lock);
@@ -1384,7 +1399,10 @@ setPriority(int pid, int priority)
     for (p = ptable.pLists.ready[i]; p != 0; p = p->next) {
 
       if (p->pid == pid) {
-       
+  
+        if (i == p->priority)
+          return i;
+     
         if (stateListRemove(&ptable.pLists.ready[p->priority], &ptable.pLists.ready_tail[p->priority], p))
           panic("setpriority - remove from ready failed\n");
 
@@ -1406,24 +1424,24 @@ setPriority(int pid, int priority)
   for (p = ptable.pLists.running; p != 0; p = p->next) {
     if (p->pid == pid) { 
       if (priority <= MAXPRIO && priority >= 0) p->priority = priority;
-      else panic("setpriority - bad priority value");
+      else return -1;
       p->budget = MAXBUDG;
       //assertPriority();
       if (locked == 1)
         release(&ptable.lock);
-      return 0;
+      return priority;
     }
   }
 
   for (p = ptable.pLists.sleep; p != 0; p = p->next) {
     if (p->pid == pid) { 
       if (priority <= MAXPRIO && priority >= 0) p->priority = priority;
-      else panic("setpriority - bad priority value");
+      else return -1;
       p->budget = MAXBUDG;
       if (locked == 1)
         release(&ptable.lock);
       //assertPriority();
-      return 0;
+      return priority;
     }
   }
  
@@ -1444,6 +1462,14 @@ getPriority(int pid)
         return p->priority;
     }
   }
+
+ for (p = ptable.pLists.running; p != 0; p = p->next) 
+    if (p->pid == pid) 
+      return p->priority;
+
+  for (p = ptable.pLists.sleep; p != 0; p = p->next) 
+    if (p->pid == pid) 
+      return p->priority;
 
   return -1;
 }
