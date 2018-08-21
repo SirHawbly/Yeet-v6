@@ -51,6 +51,12 @@ int setPriority(int pid, int priority);
 int getPriority(int pid);
 #endif
 
+#ifdef CS333_P5
+int chmod(char *path, int mode);
+int chown(char *path, int uid);
+int chgrp(char *path, int gid);
+#endif 
+
 // ulib.c
 int stat(char*, struct stat*);
 char* strcpy(char*, char*);

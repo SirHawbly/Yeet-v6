@@ -37,3 +37,10 @@
 // p4
 #define SYS_getPriority SYS_getprocs+1
 #define SYS_setPriority SYS_getPriority+1 
+
+// p5
+#define SYS_chmod SYS_setPriority+1 
+#define SYS_chown SYS_chmod+1 
+#define SYS_chgrp SYS_chown+1
+
+ 

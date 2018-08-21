@@ -20,9 +20,38 @@ struct superblock {
   uint bmapstart;    // Block number of first free map block
 };
 
+#ifdef CS333_P5
+#define NDIRECT 10
+#else
 #define NDIRECT 12
+#endif 
+
 #define NINDIRECT (BSIZE / sizeof(uint))
 #define MAXFILE (NDIRECT + NINDIRECT)
+
+#ifdef CS333_P5
+union mode_t {
+  struct {
+    uint o_x : 1;
+    uint o_w : 1;
+    uint o_r : 1;
+
+    uint g_x : 1;
+    uint g_w : 1;
+    uint g_r : 1;
+
+    uint u_x : 1;
+    uint u_w : 1;
+    uint u_r : 1;
+
+    uint setuid : 1;
+    uint : 22;
+
+  } flags;
+
+  uint asInt;
+};
+#endif
 
 // On-disk inode structure
 struct dinode {
@@ -30,6 +59,13 @@ struct dinode {
   short major;          // Major device number (T_DEV only)
   short minor;          // Minor device number (T_DEV only)
   short nlink;          // Number of links to inode in file system
+
+#ifdef CS333_P5
+  union mode_t mode;
+  ushort uid;
+  ushort gid;
+#endif
+
   uint size;            // Size of file (bytes)
   uint addrs[NDIRECT+1];   // Data block addresses
 };

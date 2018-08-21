@@ -46,3 +46,8 @@ SYSCALL(getprocs)
 # p4
 SYSCALL(setPriority)
 SYSCALL(getPriority)
+
+#p5
+SYSCALL(chmod)
+SYSCALL(chown)
+SYSCALL(chgrp)

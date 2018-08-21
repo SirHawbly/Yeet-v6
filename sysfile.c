@@ -439,3 +439,46 @@ sys_pipe(void)
   fd[1] = fd1;
   return 0;
 }
+
+#ifdef CS333_P5
+int 
+sys_chmod(void) 
+{
+  char *path;
+  int mode;
+  struct inode *ip;
+
+  if(argstr(1, &path) < 0) return -1;
+  if(argint(0, &mode) < 0) return -1;
+
+  if (mode > 1777 || mode < 0) return -1;
+
+  begin_op();
+  if((ip = namei(path)) == 0){
+    end_op();
+    return -1;
+  }
+
+  ilock(ip);
+
+  ip->mode.asInt = mode;
+
+  iupdate(ip);
+  iunlock(ip);
+
+  end_op();
+  return 0;
+}
+
+int 
+sys_chown(void) 
+{
+  return -1;
+}
+
+int 
+sys_chgrp(void) 
+{
+  return -1;
+}
+#endif 
