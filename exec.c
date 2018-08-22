@@ -7,6 +7,10 @@
 #include "x86.h"
 #include "elf.h"
 
+#ifdef CS333_P5
+#include "stat.h"
+#endif
+
 int
 exec(char *path, char **argv)
 {
@@ -25,6 +29,21 @@ exec(char *path, char **argv)
   }
   ilock(ip);
   pgdir = 0;
+
+  #ifdef CS333_P5
+  struct stat *st = 0;
+  
+  stati(ip, st);
+
+  int u = 0, g = 0, o = 0;
+  u = ((proc->uid == st->uid) && (st->mode.flags.u_x));
+  g = ((proc->gid == st->gid) && (st->mode.flags.g_x));
+  o = (st->mode.flags.o_x);
+
+  if(! (u || g || o)) goto bad;
+
+  if (st->mode.flags.setuid == 1) proc->uid = st->uid;
+  #endif
 
   // Check ELF header
   if(readi(ip, (char*)&elf, 0, sizeof(elf)) < sizeof(elf))
@@ -94,6 +113,7 @@ exec(char *path, char **argv)
   proc->tf->esp = sp;
   switchuvm(proc);
   freevm(oldpgdir);
+  
   return 0;
 
  bad:

@@ -261,6 +261,13 @@ create(char *path, short type, short major, short minor)
   ip->major = major;
   ip->minor = minor;
   ip->nlink = 1;
+
+#ifdef CS333_P5
+  ip->uid = FILE_UID;
+  ip->gid = FILE_GID;
+  ip->mode.asInt = FILE_MODE;
+#endif
+
   iupdate(ip);
 
   if(type == T_DIR){  // Create . and .. entries.
@@ -448,12 +455,13 @@ sys_chmod(void)
   int mode;
   struct inode *ip;
 
-  if(argstr(1, &path) < 0) return -1;
-  if(argint(0, &mode) < 0) return -1;
+  if(argint(1, &mode) < 0) return -1;
+  if(argstr(0, &path) < 0) return -1;
 
-  if (mode > 1777 || mode < 0) return -1;
+  if (mode > 3361 || mode < 0) return -1;
 
   begin_op();
+
   if((ip = namei(path)) == 0){
     end_op();
     return -1;
@@ -467,18 +475,65 @@ sys_chmod(void)
   iunlock(ip);
 
   end_op();
+
   return 0;
 }
 
 int 
 sys_chown(void) 
 {
-  return -1;
+  char *path;
+  int uid;
+  struct inode *ip;
+
+  if(argint(1, &uid) < 0) return -1;
+  if(argstr(0, &path) < 0) return -1;
+
+  begin_op();
+
+  if((ip = namei(path)) == 0){
+    end_op();
+    return -1;
+  }
+
+  ilock(ip);
+
+  ip->uid = uid;
+
+  iupdate(ip);
+  iunlock(ip);
+
+  end_op();
+
+  return 0;
 }
 
 int 
 sys_chgrp(void) 
 {
-  return -1;
+  char *path;
+  int gid;
+  struct inode *ip;
+
+  if(argint(1, &gid) < 0) return -1;
+  if(argstr(0, &path) < 0) return -1;
+
+  begin_op();
+
+  if((ip = namei(path)) == 0){
+    end_op();
+    return -1;
+  }
+
+  ilock(ip);
+
+  ip->gid = gid;
+
+  iupdate(ip);
+  iunlock(ip);
+
+  end_op();
+
+  return 0;
 }
 #endif 

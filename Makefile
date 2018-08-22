@@ -35,7 +35,7 @@ ifeq ($(CS333_PROJECT), 5)
 CS333_CFLAGS += -DUSE_BUILTINS -DCS333_P1 -DCS333_P2 \
 		-DCS333_P3P4 -DCS333_P5
 CS333_UPROGS += _date _time _ps _chgrp  _chmod _chown
-CS333_TPROGS += _p2testsuite _p4test # _p5-test _testsetuid
+CS333_TPROGS += _p2testsuite _p4test _p5-test _testsetuid
 CS333_MKFSFLAGS += -DCS333_P2 -DCS333_P5
 endif
 

@@ -25,3 +25,12 @@
 #define TICKS_TO_PROMOTE MAXBUDG*20
 
 #endif
+
+// p5
+#ifdef CS333_P5
+
+#define FILE_UID   0
+#define FILE_GID   0
+#define FILE_MODE  0755
+
+#endif

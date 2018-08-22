@@ -22,6 +22,30 @@ fmtname(char *path)
   return buf;
 }
 
+#ifdef CS333_P5
+void 
+printMode (short type, union stat_mode_t mode) {
+  if (type == 1) printf(1, "d");
+  if (type == 2) printf(1, "-");
+  if (type == 3) printf(1, "c");
+  
+  char c;
+  if (mode.flags.setuid) c = 'S'; else c = 'x';
+
+  if(mode.flags.u_r) printf(1, "r");  else printf(1, "-");
+  if(mode.flags.u_w) printf(1, "w");  else printf(1, "-");
+  if(mode.flags.u_x) printf(1, "%c", c); else printf(1, "-");
+
+  if(mode.flags.g_r) printf(1, "r");  else printf(1, "-");
+  if(mode.flags.g_w) printf(1, "w");  else printf(1, "-");
+  if(mode.flags.g_x) printf(1, "%c", c); else printf(1, "-");
+
+  if(mode.flags.o_r) printf(1, "r");  else printf(1, "-");
+  if(mode.flags.o_w) printf(1, "w");  else printf(1, "-");
+  if(mode.flags.o_x) printf(1, "%c\t", c); else printf(1, "-\t");
+}
+#endif
+
 void
 ls(char *path)
 {
@@ -43,7 +67,14 @@ ls(char *path)
   
   switch(st.type){
   case T_FILE:
+  case T_DEV:
+#ifdef CS333_P5
+    printMode(st.type, st.mode);
+    printf(1, "%s\t\t%d\t%d\t%d\t%d\n", fmtname(path), st.uid, st.gid, st.ino, st.size);
+#else
     printf(1, "%s %d %d %d\n", fmtname(path), st.type, st.ino, st.size);
+#endif
+
     break;
   
   case T_DIR:
@@ -63,7 +94,15 @@ ls(char *path)
         printf(1, "ls: cannot stat %s\n", buf);
         continue;
       }
+
+#ifdef CS333_P5
+      printMode(st.type, st.mode);
+      printf(1, "%s\t\t%d\t%d\t%d\t%d\n", fmtname(buf), st.uid, st.gid, st.ino, st.size);
+
+#else
       printf(1, "%s %d %d %d\n", fmtname(buf), st.type, st.ino, st.size);
+#endif
+
     }
     break;
   }
@@ -74,6 +113,10 @@ int
 main(int argc, char *argv[])
 {
   int i;
+
+#ifdef CS333_P5
+  printf(1, "mode\t\tname\t\t\tuid\tgid\tinode\tsize\n");
+#endif
 
   if(argc < 2){
     ls(".");
