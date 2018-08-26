@@ -664,3 +664,77 @@ nameiparent(char *path, char *name)
 {
   return namex(path, 1, name);
 }
+
+#ifdef CS333_P5
+int 
+chmod(char *path, int mode) 
+{
+  struct inode *ip;
+
+  begin_op();
+
+  if((ip = namei(path)) == 0){
+    end_op();
+    return -1;
+  }
+
+  ilock(ip);
+
+  ip->mode.asInt = mode;
+
+  iupdate(ip);
+  iunlock(ip);
+
+  end_op();
+
+  return 0;
+}
+
+int 
+chown(char *path, int uid) 
+{
+  struct inode *ip;
+
+  begin_op();
+
+  if((ip = namei(path)) == 0){
+    end_op();
+    return -1;
+  }
+
+  ilock(ip);
+
+  ip->uid = uid;
+
+  iupdate(ip);
+  iunlock(ip);
+
+  end_op();
+
+  return 0;
+}
+
+int 
+chgrp(char *path, int gid) 
+{
+  struct inode *ip;
+
+  begin_op();
+
+  if((ip = namei(path)) == 0){
+    end_op();
+    return -1;
+  }
+
+  ilock(ip);
+
+  ip->gid = gid;
+
+  iupdate(ip);
+  iunlock(ip);
+
+  end_op();
+
+  return 0;
+}
+#endif 

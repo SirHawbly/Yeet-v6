@@ -448,33 +448,21 @@ sys_pipe(void)
 }
 
 #ifdef CS333_P5
+extern int chmod(char *path, int mode);
+extern int chown(char *path, int mode);
+extern int chgrp(char *path, int mode);
 int 
 sys_chmod(void) 
 {
   char *path;
   int mode;
-  struct inode *ip;
 
   if(argint(1, &mode) < 0) return -1;
   if(argstr(0, &path) < 0) return -1;
 
   if (mode > 3361 || mode < 0) return -1;
 
-  begin_op();
-
-  if((ip = namei(path)) == 0){
-    end_op();
-    return -1;
-  }
-
-  ilock(ip);
-
-  ip->mode.asInt = mode;
-
-  iupdate(ip);
-  iunlock(ip);
-
-  end_op();
+  chmod(path, mode);
 
   return 0;
 }
@@ -484,26 +472,11 @@ sys_chown(void)
 {
   char *path;
   int uid;
-  struct inode *ip;
 
   if(argint(1, &uid) < 0) return -1;
   if(argstr(0, &path) < 0) return -1;
 
-  begin_op();
-
-  if((ip = namei(path)) == 0){
-    end_op();
-    return -1;
-  }
-
-  ilock(ip);
-
-  ip->uid = uid;
-
-  iupdate(ip);
-  iunlock(ip);
-
-  end_op();
+  chown(path, uid);
 
   return 0;
 }
@@ -513,26 +486,11 @@ sys_chgrp(void)
 {
   char *path;
   int gid;
-  struct inode *ip;
 
   if(argint(1, &gid) < 0) return -1;
   if(argstr(0, &path) < 0) return -1;
 
-  begin_op();
-
-  if((ip = namei(path)) == 0){
-    end_op();
-    return -1;
-  }
-
-  ilock(ip);
-
-  ip->gid = gid;
-
-  iupdate(ip);
-  iunlock(ip);
-
-  end_op();
+  chgrp(path, gid);
 
   return 0;
 }

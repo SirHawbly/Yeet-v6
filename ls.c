@@ -67,8 +67,8 @@ ls(char *path)
   
   switch(st.type){
   case T_FILE:
-  case T_DEV:
 #ifdef CS333_P5
+  case T_DEV:
     printMode(st.type, st.mode);
     printf(1, "%s\t\t%d\t%d\t%d\t%d\n", fmtname(path), st.uid, st.gid, st.ino, st.size);
 #else

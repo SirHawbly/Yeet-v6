@@ -11,10 +11,11 @@ main(int argc, char **argv)
     printf(1, "chmod - usage 'chmod mode path'\n");
     exit();
   }  
-
+  
+  int value = atoi(argv[1]);
   int mode = atoo(argv[1]);
 
-  if (mode > 3361 || mode < 0) {
+  if (value > 1777 || value < 0) {
     printf(1, "chmod - mode should be inbetween 0000 and 1777\n");
     exit();
   }
